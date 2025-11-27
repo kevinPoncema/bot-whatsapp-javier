@@ -3,6 +3,7 @@ const qrcode = require('qrcode-terminal');
 const tf = require('@tensorflow/tfjs'); // Usamos la versión pura (sin node)
 const nsfw = require('nsfwjs');
 const jpeg = require('jpeg-js'); // Nueva librería para leer las fotos
+const OllamaServices = require('./ollamaServices'); // Importar el servicio de Ollama
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -10,6 +11,7 @@ const client = new Client({
 });
 
 let model;
+let ollamaService; // Instancia del servicio de Ollama
 
 // --- Función auxiliar para convertir imagen a Tensor ---
 async function imageToTensor(mediaData) {
@@ -33,6 +35,11 @@ async function iniciarBot() {
     // Cargamos el modelo. Notar que ya no necesitamos parámetros extra aquí
     model = await nsfw.load(); 
     console.log("¡IA Cargada! Iniciando WhatsApp...");
+    
+    // Inicializar servicio de Ollama
+    ollamaService = new OllamaServices();
+    console.log("Servicio de Ollama inicializado...");
+    
     client.initialize();
 }
 
@@ -68,6 +75,46 @@ client.on('message', async (msg) => {
     // Comando para responder 'pong' al mensaje '!ping'
     if (msg.body === '!ping') {
         await msg.reply('pong');
+    }
+
+    // Comando para interactuar con Ollama AI
+    if (msg.body.startsWith('!gibli ')) {
+        try {
+            const userQuestion = msg.body.substring(7).trim(); // Remover '!gibli '
+            
+            if (!userQuestion) {
+                await msg.reply('Por favor, incluye una pregunta después del comando !gibli');
+                return;
+            }
+
+            // Mostrar mensaje de "escribiendo..."
+            const chat = await msg.getChat();
+            await chat.sendStateTyping();
+
+            // Generar respuesta usando Ollama
+            const response = await ollamaService.generateResponse(
+                msg.from, // Usar el ID del chat como identificador
+                userQuestion
+            );
+
+            // Verificar si es el mensaje de contexto superado
+            if (response === '!contexto superado limpiando contexto') {
+                await msg.reply('⚠️ ' + response);
+                // Procesar el mensaje nuevamente después de limpiar
+                const newResponse = await ollamaService.generateResponse(msg.from, userQuestion);
+                await msg.reply('🤖 ' + newResponse);
+            } else {
+                await msg.reply('🤖 ' + response);
+            }
+
+            // Mostrar estadísticas de la conversación
+            const stats = ollamaService.getConversationStats(msg.from);
+            console.log(`Chat ${msg.from}: ${stats.messageCount}/${60} mensajes usados`);
+
+        } catch (error) {
+            console.error('Error procesando comando !gibli:', error);
+            await msg.reply('❌ Error procesando tu pregunta. Inténtalo más tarde.');
+        }
     }
 
     // Coloca esto dentro de client.on('message', ...)

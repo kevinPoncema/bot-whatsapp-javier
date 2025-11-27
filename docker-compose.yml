@@ -1,5 +1,12 @@
 version: '3.8'
 
+networks:
+  whatsapp-network:
+    driver: bridge
+
+volumes:
+  ollama-data:
+
 services:
   bot-whatsapp-guardian:
     build:
@@ -10,3 +17,22 @@ services:
       - .:/app
     environment:
       - NODE_ENV=production
+      - OLLAMA_HOST=ollama
+      - OLLAMA_PORT=11434
+    networks:
+      - whatsapp-network
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-server
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - whatsapp-network
+    environment:
+      - OLLAMA_HOST=0.0.0.0s
