@@ -65,6 +65,11 @@ client.on('message', async (msg) => {
         }
     }
 
+    // Comando para responder 'pong' al mensaje '!ping'
+    if (msg.body === '!ping') {
+        await msg.reply('pong');
+    }
+
     // Coloca esto dentro de client.on('message', ...)
 if (msg.body === '!sticker' && msg.hasMedia) {
     try {
